@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tejash Shukla | Interactive 3D Portfolio</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome & Lucide Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#050811',
+                            card: 'rgba(13, 22, 40, 0.65)',
+                            border: 'rgba(56, 189, 248, 0.2)',
+                            cyan: '#00f0ff',
+                            purple: '#7000ff',
+                            pink: '#ff007f',
+                            neon: '#39ff14'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #050811;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 240, 255, 0.3);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00f0ff;
+        }
+
+        /* Canvas background overlay non-interfering */
+        #webgl-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Frosted Glassmorphism */
+        .glass-panel {
+            background: rgba(10, 16, 30, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        }
+
+        .glow-text-cyan {
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.6), 0 0 20px rgba(0, 240, 255, 0.3);
+        }
+
+        .glow-text-purple {
+            text-shadow: 0 0 10px rgba(112, 0, 255, 0.6), 0 0 20px rgba(112, 0, 255, 0.3);
+        }
+
+        /* Custom Gradients */
+        .gradient-text {
+            background: linear-gradient(135deg, #00f0ff 0%, #7000ff 50%, #ff007f 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Interactive Canvas Playground Border Pulsing */
+        @keyframes pulse-glow {
+            0%, 100% { border-color: rgba(0, 240, 255, 0.3); }
+            50% { border-color: rgba(112, 0, 255, 0.6); }
+        }
+
+        .playground-container {
+            animation: pulse-glow 4s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-[#050811] text-slate-200 font-sans antialiased selection:bg-cyan-500 selection:text-black overflow-x-hidden">
+
+    <!-- Ambient 3D Dynamic WebGL Canvas -->
+    <canvas id="webgl-bg"></canvas>
+
+    <!-- Navigation Bar -->
+    <nav class="fixed top-0 left-0 w-full z-50 glass-panel border-b border-white/10 px-6 py-4 transition-all duration-300">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <a href="#hero" class="text-xl font-mono font-bold tracking-wider text-white flex items-center gap-2">
+                <span class="text-cyber-cyan">&lt;</span>TejashShukla<span class="text-cyber-cyan">/&gt;</span>
+            </a>
+            
+            <!-- Desktop Nav -->
+            <div class="hidden md:flex items-center space-x-8 text-sm font-medium">
+                <a href="#about" class="hover:text-cyber-cyan transition-colors">About</a>
+                <a href="#skills" class="hover:text-cyber-cyan transition-colors">Skills</a>
+                <a href="#achievements" class="hover:text-cyber-cyan transition-colors">Achievements</a>
+                <a href="#projects" class="hover:text-cyber-cyan transition-colors">Projects</a>
+                <a href="#playground" class="hover:text-cyber-cyan transition-colors">3D Lab</a>
+                <a href="#contact" class="px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyber-cyan/40 text-cyber-cyan hover:bg-cyber-cyan hover:text-black transition-all duration-300 font-mono">Contact_Me</a>
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <button id="mobile-menu-btn" class="md:hidden text-2xl text-slate-300 focus:outline-none">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+        </div>
+
+        <!-- Mobile Nav Menu -->
+        <div id="mobile-menu" class="hidden md:hidden flex-col gap-4 mt-4 pt-4 border-t border-white/10 text-center font-mono">
+            <a href="#about" class="mobile-link py-2 hover:text-cyber-cyan">About</a>
+            <a href="#skills" class="mobile-link py-2 hover:text-cyber-cyan">Skills</a>
+            <a href="#achievements" class="mobile-link py-2 hover:text-cyber-cyan">Achievements</a>
+            <a href="#projects" class="mobile-link py-2 hover:text-cyber-cyan">Projects</a>
+            <a href="#playground" class="mobile-link py-2 hover:text-cyber-cyan">3D Lab</a>
+            <a href="#contact" class="mobile-link py-2 text-cyber-cyan">Contact</a>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-32 pt-28 pb-20">
+
+        <!-- HERO SECTION -->
+        <section id="hero" class="min-h-[85vh] flex flex-col justify-center items-start pt-10">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyber-cyan/30 text-cyber-cyan text-xs font-mono mb-6 backdrop-blur-md">
+                <span class="w-2 h-2 rounded-full bg-cyber-cyan animate-ping"></span>
+                Interactive Portfolio Environment
+            </div>
+            
+            <h1 class="text-5xl sm:text-7xl lg:text-8xl font-extrabold tracking-tight text-white mb-4">
+                Tejash Shukla
+            </h1>
+            
+            <h2 class="text-xl sm:text-3xl lg:text-4xl font-semibold mb-6 gradient-text font-mono">
+                Competitive Programmer | AI & Web Developer | Problem Solver
+            </h2>
+            
+            <p class="max-w-2xl text-slate-400 text-base sm:text-lg mb-8 leading-relaxed">
+                Architecting high-performance algorithms, crafting immersive web environments, and solving complex problems with structured data architectures and Artificial Intelligence.
+            </p>
+
+            <div class="flex flex-wrap gap-4 items-center">
+                <a href="#projects" class="px-8 py-3.5 rounded-xl bg-gradient-to-r from-cyber-cyan to-cyber-purple text-black font-bold hover:shadow-[0_0_25px_rgba(0,240,255,0.5)] transition-all duration-300 transform hover:-translate-y-1">
+                    Explore Projects <i class="fa-solid fa-arrow-right ml-2"></i>
+                </a>
+                <a href="#contact" class="px-8 py-3.5 rounded-xl glass-panel text-white font-medium hover:bg-white/10 hover:border-cyber-cyan transition-all duration-300 font-mono">
+                    Contact Me
+                </a>
+                <a href="#playground" class="px-4 py-3.5 rounded-xl glass-panel text-cyber-cyan hover:text-white transition-all duration-300" title="Launch Interactive 3D Lab">
+                    <i class="fa-solid fa-cube text-xl"></i>
+                </a>
+            </div>
+
+            <!-- Stats Ribbon -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-16 w-full max-w-4xl">
+                <div class="glass-panel p-4 rounded-xl border-l-4 border-l-cyber-cyan">
+                    <div class="text-2xl font-bold font-mono text-white">500+</div>
+                    <div class="text-xs text-slate-400 uppercase tracking-wider font-mono">LeetCode Solved</div>
+                </div>
+                <div class="glass-panel p-4 rounded-xl border-l-4 border-l-cyber-purple">
+                    <div class="text-2xl font-bold font-mono text-white">SIH Finalist</div>
+                    <div class="text-xs text-slate-400 uppercase tracking-wider font-mono">Smart India Hackathon</div>
+                </div>
+                <div class="glass-panel p-4 rounded-xl border-l-4 border-l-cyber-pink">
+                    <div class="text-2xl font-bold font-mono text-white">C++ & Python</div>
+                    <div class="text-xs text-slate-400 uppercase tracking-wider font-mono">Core Stack</div>
+                </div>
+                <div class="glass-panel p-4 rounded-xl border-l-4 border-l-cyber-neon">
+                    <div class="text-2xl font-bold font-mono text-white">Real-Time 3D</div>
+                    <div class="text-xs text-slate-400 uppercase tracking-wider font-mono">Three.js Web Visuals</div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ABOUT ME SECTION -->
+        <section id="about" class="scroll-mt-24">
+            <div class="flex items-center gap-3 mb-8">
+                <span class="text-cyber-cyan font-mono text-lg">01.</span>
+                <h3 class="text-3xl font-bold text-white tracking-wide">About Me</h3>
+                <div class="h-[1px] bg-slate-800 flex-grow max-w-xs"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+                <div class="md:col-span-7 glass-panel p-8 rounded-2xl space-y-4 text-slate-300 leading-relaxed">
+                    <p>
+                        Hello! I'm <span class="text-white font-semibold">Tejash Shukla</span>, a passionate technologist dedicated to algorithmic efficiency, algorithmic competitive programming, and modern interactive web experiences.
+                    </p>
+                    <p>
+                        My core foundation rests in <span class="text-cyber-cyan font-mono">Data Structures & Algorithms (C++)</span>. I spend significant time dissecting complex algorithmic problems, state-space search mechanics, dynamic programming, and graph theory.
+                    </p>
+                    <p>
+                        Beyond algorithmic problem solving, I build scalable full-stack applications and high-performance interactive 3D web interfaces using modern frameworks like React, Three.js, and modern CSS architectures.
+                    </p>
+                    <div class="pt-4 flex flex-wrap gap-3 font-mono text-xs">
+                        <span class="px-3 py-1 rounded-md bg-white/5 border border-white/10 text-cyan-400">#CompetitiveProgramming</span>
+                        <span class="px-3 py-1 rounded-md bg-white/5 border border-white/10 text-purple-400">#GraphTheory</span>
+                        <span class="px-3 py-1 rounded-md bg-white/5 border border-white/10 text-pink-400">#StateSpaceSearch</span>
+                        <span class="px-3 py-1 rounded-md bg-white/5 border border-white/10 text-green-400">#3DWebGL</span>
+                    </div>
+                </div>
+
+                <div class="md:col-span-5 flex justify-center">
+                    <div class="relative w-full max-w-sm aspect-square glass-panel rounded-2xl p-6 flex flex-col justify-between border border-cyber-cyan/30 overflow-hidden group">
+                        <!-- Background glow effect -->
+                        <div class="absolute -right-10 -top-10 w-40 h-40 bg-cyber-cyan/20 rounded-full blur-3xl group-hover:bg-cyber-cyan/40 transition-all duration-500"></div>
+                        <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-cyber-purple/20 rounded-full blur-3xl group-hover:bg-cyber-purple/40 transition-all duration-500"></div>
+
+                        <div class="font-mono text-xs text-cyber-cyan flex justify-between items-center">
+                            <span>SYSTEM_STATUS</span>
+                            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>ONLINE</span>
+                        </div>
+
+                        <div class="my-auto space-y-3 font-mono text-sm">
+                            <div class="text-slate-400">&gt; Tejash.getCurrentFocus()</div>
+                            <div class="text-green-400 pl-4">"Advanced Graph Algorithms & 3D Visualizations"</div>
+                            <div class="text-slate-400">&gt; Tejash.getPrimaryLanguage()</div>
+                            <div class="text-cyber-cyan pl-4">"C++ (CP) / Python / JS"</div>
+                            <div class="text-slate-400">&gt; Tejash.getMotto()</div>
+                            <div class="text-purple-300 pl-4">"Optimizing time & space complexities."</div>
+                        </div>
+
+                        <div class="font-mono text-xs text-slate-500 flex justify-between border-t border-white/10 pt-3">
+                            <span>LOC: INDIA</span>
+                            <span>CP_RATING: ACTIVE</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- SKILLS SHOWCASE -->
+        <section id="skills" class="scroll-mt-24">
+            <div class="flex items-center gap-3 mb-8">
+                <span class="text-cyber-cyan font-mono text-lg">02.</span>
+                <h3 class="text-3xl font-bold text-white tracking-wide">Skills & Tech Stack</h3>
+                <div class="h-[1px] bg-slate-800 flex-grow max-w-xs"></div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Card 1: DSA & CP -->
+                <div class="glass-panel p-6 rounded-2xl border-t-2 border-t-cyber-cyan hover:-translate-y-1 transition-all duration-300">
+                    <div class="w-12 h-12 rounded-xl bg-cyber-cyan/10 border border-cyber-cyan/30 flex items-center justify-center text-cyber-cyan text-xl mb-4">
+                        <i class="fa-solid fa-code font-bold"></i>
+                    </div>
+                    <h4 class="text-xl font-bold text-white mb-2">Core & CP</h4>
+                    <p class="text-slate-400 text-sm mb-4">Proficiency in competitive programming and high-performance algorithms.</p>
+                    <div class="flex flex-wrap gap-2 font-mono text-xs">
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">C++ 17/20</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Data Structures</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Algorithms</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Python</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">OOPs</span>
+                    </div>
+                </div>
+
+                <!-- Card 2: AI & State-Space -->
+                <div class="glass-panel p-6 rounded-2xl border-t-2 border-t-cyber-purple hover:-translate-y-1 transition-all duration-300">
+                    <div class="w-12 h-12 rounded-xl bg-cyber-purple/10 border border-cyber-purple/30 flex items-center justify-center text-cyber-purple text-xl mb-4">
+                        <i class="fa-solid fa-brain"></i>
+                    </div>
+                    <h4 class="text-xl font-bold text-white mb-2">AI & Search Logic</h4>
+                    <p class="text-slate-400 text-sm mb-4">State-space search strategies and foundational Machine Learning concepts.</p>
+                    <div class="flex flex-wrap gap-2 font-mono text-xs">
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">A* Search</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Minimax</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Heuristic Optimization</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Scikit-Learn</span>
+                    </div>
+                </div>
+
+                <!-- Card 3: Web Development -->
+                <div class="glass-panel p-6 rounded-2xl border-t-2 border-t-cyber-pink hover:-translate-y-1 transition-all duration-300">
+                    <div class="w-12 h-12 rounded-xl bg-cyber-pink/10 border border-cyber-pink/30 flex items-center justify-center text-cyber-pink text-xl mb-4">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                    <h4 class="text-xl font-bold text-white mb-2">Web Development</h4>
+                    <p class="text-slate-400 text-sm mb-4">Modern frontend and full-stack web application development.</p>
+                    <div class="flex flex-wrap gap-2 font-mono text-xs">
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">JavaScript / TS</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">React.js</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">HTML5/CSS3</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Tailwind CSS</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">REST APIs</span>
+                    </div>
+                </div>
+
+                <!-- Card 4: 3D Graphics & Visuals -->
+                <div class="glass-panel p-6 rounded-2xl border-t-2 border-t-cyber-neon hover:-translate-y-1 transition-all duration-300">
+                    <div class="w-12 h-12 rounded-xl bg-cyber-neon/10 border border-cyber-neon/30 flex items-center justify-center text-cyber-neon text-xl mb-4">
+                        <i class="fa-solid fa-cubes"></i>
+                    </div>
+                    <h4 class="text-xl font-bold text-white mb-2">3D & Interactive Graphics</h4>
+                    <p class="text-slate-400 text-sm mb-4">Creating interactive 3D elements and immersive web canvases.</p>
+                    <div class="flex flex-wrap gap-2 font-mono text-xs">
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Three.js</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">WebGL Fundamentals</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">GLSL Concepts</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Particle Systems</span>
+                    </div>
+                </div>
+
+                <!-- Card 5: Developer Tools -->
+                <div class="glass-panel p-6 rounded-2xl border-t-2 border-t-amber-400 hover:-translate-y-1 transition-all duration-300 sm:col-span-2 lg:col-span-2">
+                    <div class="w-12 h-12 rounded-xl bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400 text-xl mb-4">
+                        <i class="fa-solid fa-terminal"></i>
+                    </div>
+                    <h4 class="text-xl font-bold text-white mb-2">Tools & Environments</h4>
+                    <p class="text-slate-400 text-sm mb-4">Workflow, version control, testing environments, and problem-solving platforms.</p>
+                    <div class="flex flex-wrap gap-2 font-mono text-xs">
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Git & GitHub</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">VS Code</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">LeetCode</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Codeforces</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-200">Linux / Bash</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ACHIEVEMENTS SECTION -->
+        <section id="achievements" class="scroll-mt-24">
+            <div class="flex items-center gap-3 mb-8">
+                <span class="text-cyber-cyan font-mono text-lg">03.</span>
+                <h3 class="text-3xl font-bold text-white tracking-wide">Key Achievements</h3>
+                <div class="h-[1px] bg-slate-800 flex-grow max-w-xs"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- SIH Hackathon -->
+                <div class="glass-panel p-8 rounded-2xl border border-cyber-cyan/30 relative overflow-hidden group">
+                    <div class="absolute -right-12 -bottom-12 w-36 h-36 bg-cyber-cyan/10 rounded-full blur-2xl group-hover:bg-cyber-cyan/20 transition-all duration-500"></div>
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="px-3 py-1 rounded-full bg-cyber-cyan/20 text-cyber-cyan text-xs font-mono font-semibold">
+                            NATIONAL LEVEL
+                        </div>
+                        <i class="fa-solid fa-trophy text-amber-400 text-2xl"></i>
+                    </div>
+                    <h4 class="text-2xl font-bold text-white mb-2">Smart India Hackathon (SIH)</h4>
+                    <p class="text-cyber-cyan font-mono text-sm mb-4">Grand Finale Participant</p>
+                    <p class="text-slate-300 text-sm leading-relaxed mb-6">
+                        Shortlisted and represented among top competitive teams at the prestigious national-level hackathon, engineering real-world hardware/software solutions under high-pressure timed constraints.
+                    </p>
+                    <div class="flex items-center gap-2 font-mono text-xs text-slate-400">
+                        <i class="fa-solid fa-check text-cyber-cyan"></i> Problem Solving under time constraints
+                    </div>
+                </div>
+
+                <!-- LeetCode & CP -->
+                <div class="glass-panel p-8 rounded-2xl border border-cyber-purple/30 relative overflow-hidden group">
+                    <div class="absolute -right-12 -bottom-12 w-36 h-36 bg-cyber-purple/10 rounded-full blur-2xl group-hover:bg-cyber-purple/20 transition-all duration-500"></div>
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="px-3 py-1 rounded-full bg-cyber-purple/20 text-cyber-purple text-xs font-mono font-semibold">
+                            COMPETITIVE PROGRAMMING
+                        </div>
+                        <i class="fa-solid fa-award text-cyber-purple text-2xl"></i>
+                    </div>
+                    <h4 class="text-2xl font-bold text-white mb-2">500+ LeetCode Solved</h4>
+                    <p class="text-cyber-purple font-mono text-sm mb-4">Active Biweekly Contest Participant</p>
+                    <p class="text-slate-300 text-sm leading-relaxed mb-6">
+                        Consistently participating in contests, demonstrating algorithmic fluency across Graph theory, Dynamic Programming, Tree operations, and state-space search optimization.
+                    </p>
+                    <div class="flex items-center gap-2 font-mono text-xs text-slate-400">
+                        <i class="fa-solid fa-check text-cyber-purple"></i> Strong algorithmic & time-complexity mindset
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- PROJECTS SECTION -->
+        <section id="projects" class="scroll-mt-24">
+            <div class="flex items-center gap-3 mb-8">
+                <span class="text-cyber-cyan font-mono text-lg">04.</span>
+                <h3 class="text-3xl font-bold text-white tracking-wide">Featured Projects</h3>
+                <div class="h-[1px] bg-slate-800 flex-grow max-w-xs"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Project 1 -->
+                <div class="glass-panel rounded-2xl overflow-hidden group border border-white/10 hover:border-cyber-cyan/50 transition-all duration-300 flex flex-col justify-between">
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-cyber-cyan font-mono text-xs">Featured Project</span>
+                            <div class="flex gap-3 text-slate-400">
+                                <a href="https://github.com" target="_blank" class="hover:text-cyber-cyan transition-colors"><i class="fa-brands fa-github text-lg"></i></a>
+                                <a href="#playground" class="hover:text-cyber-cyan transition-colors"><i class="fa-solid fa-arrow-up-right-from-square text-lg"></i></a>
+                            </div>
+                        </div>
+                        <h4 class="text-2xl font-bold text-white group-hover:text-cyber-cyan transition-colors mb-2">
+                            3D Interactive Portfolio Engine
+                        </h4>
+                        <p class="text-slate-300 text-sm leading-relaxed mb-4">
+                            A dynamic WebGL 3D portfolio featuring procedural particle systems, custom lighting, raycasting interactivity, and responsive frosted glass design.
+                        </p>
+                    </div>
+                    <div class="px-6 pb-6 pt-2 flex flex-wrap gap-2 font-mono text-xs">
+                        <span class="px-2.5 py-1 rounded bg-cyan-950/60 text-cyber-cyan border border-cyber-cyan/20">Three.js</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300">JavaScript</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300">Tailwind CSS</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300">WebGL</span>
+                    </div>
+                </div>
+
+                <!-- Project 2 -->
+                <div class="glass-panel rounded-2xl overflow-hidden group border border-white/10 hover:border-cyber-purple/50 transition-all duration-300 flex flex-col justify-between">
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-cyber-purple font-mono text-xs">SIH Hackathon Project</span>
+                            <div class="flex gap-3 text-slate-400">
+                                <a href="https://github.com" target="_blank" class="hover:text-cyber-purple transition-colors"><i class="fa-brands fa-github text-lg"></i></a>
+                                <a href="#" class="hover:text-cyber-purple transition-colors"><i class="fa-solid fa-arrow-up-right-from-square text-lg"></i></a>
+                            </div>
+                        </div>
+                        <h4 class="text-2xl font-bold text-white group-hover:text-cyber-purple transition-colors mb-2">
+                            Smart India Hackathon Prototype
+                        </h4>
+                        <p class="text-slate-300 text-sm leading-relaxed mb-4">
+                            Real-time analytical and problem-solving software application developed for national challenges, integrating algorithm analysis with clean front-end interfaces.
+                        </p>
+                    </div>
+                    <div class="px-6 pb-6 pt-2 flex flex-wrap gap-2 font-mono text-xs">
+                        <span class="px-2.5 py-1 rounded bg-purple-950/60 text-cyber-purple border border-cyber-purple/20">Python / C++</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300">React</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300">REST API</span>
+                    </div>
+                </div>
+
+                <!-- Project 3 -->
+                <div class="glass-panel rounded-2xl overflow-hidden group border border-white/10 hover:border-cyber-pink/50 transition-all duration-300 flex flex-col justify-between">
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-cyber-pink font-mono text-xs">AI & Algorithms</span>
+                            <div class="flex gap-3 text-slate-400">
+                                <a href="https://github.com" target="_blank" class="hover:text-cyber-pink transition-colors"><i class="fa-brands fa-github text-lg"></i></a>
+                            </div>
+                        </div>
+                        <h4 class="text-2xl font-bold text-white group-hover:text-cyber-pink transition-colors mb-2">
+                            State-Space AI Search Visualizer
+                        </h4>
+                        <p class="text-slate-300 text-sm leading-relaxed mb-4">
+                            An interactive visual engine simulating search algorithms (A*, BFS, DFS, Dijkstra) in complex state-spaces to demonstrate pathfinding and heuristic efficiency.
+                        </p>
+                    </div>
+                    <div class="px-6 pb-6 pt-2 flex flex-wrap gap-2 font-mono text-xs">
+                        <span class="px-2.5 py-1 rounded bg-pink-950/60 text-cyber-pink border border-cyber-pink/20">A* Search</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300">Data Structures</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300">Canvas API</span>
+                    </div>
+                </div>
+
+                <!-- Project 4 -->
+                <div class="glass-panel rounded-2xl overflow-hidden group border border-white/10 hover:border-cyber-neon/50 transition-all duration-300 flex flex-col justify-between">
+                    <div class="p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-cyber-neon font-mono text-xs">Algorithm Suite</span>
+                            <div class="flex gap-3 text-slate-400">
+                                <a href="https://github.com" target="_blank" class="hover:text-cyber-neon transition-colors"><i class="fa-brands fa-github text-lg"></i></a>
+                            </div>
+                        </div>
+                        <h4 class="text-2xl font-bold text-white group-hover:text-cyber-neon transition-colors mb-2">
+                            CP Algorithm Benchmarking Tool
+                        </h4>
+                        <p class="text-slate-300 text-sm leading-relaxed mb-4">
+                            A high-speed execution benchmarking suite in C++ designed to test time and memory performance of advanced data structures (Segment Trees, Disjoint Set Union).
+                        </p>
+                    </div>
+                    <div class="px-6 pb-6 pt-2 flex flex-wrap gap-2 font-mono text-xs">
+                        <span class="px-2.5 py-1 rounded bg-emerald-950/60 text-cyber-neon border border-cyber-neon/20">C++ 20</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300">Benchmarking</span>
+                        <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300">CP Templates</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- INTERACTIVE 3D MINI FEATURE / PLAYGROUND -->
+        <section id="playground" class="scroll-mt-24">
+            <div class="flex items-center gap-3 mb-8">
+                <span class="text-cyber-cyan font-mono text-lg">05.</span>
+                <h3 class="text-3xl font-bold text-white tracking-wide">Interactive 3D Lab</h3>
+                <div class="h-[1px] bg-slate-800 flex-grow max-w-xs"></div>
+            </div>
+
+            <div class="playground-container glass-panel p-6 rounded-3xl border border-cyber-cyan/30">
+                <div class="flex flex-col lg:flex-row gap-6">
+                    
+                    <!-- Playground Canvas -->
+                    <div class="relative flex-1 aspect-video lg:aspect-auto min-h-[350px] sm:min-h-[450px] rounded-2xl overflow-hidden bg-slate-950 border border-white/10">
+                        <canvas id="playground-canvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+                        
+                        <!-- Overlay instruction -->
+                        <div class="absolute bottom-4 left-4 pointer-events-none glass-panel px-3 py-1.5 rounded-lg text-xs font-mono text-slate-300">
+                            <i class="fa-solid fa-hand-pointer text-cyber-cyan mr-1.5"></i> Click & Drag to Rotate Scene
+                        </div>
+                    </div>
+
+                    <!-- Interactive Controls Panel -->
+                    <div class="w-full lg:w-80 flex flex-col justify-between space-y-6">
+                        <div>
+                            <h4 class="text-xl font-bold text-white mb-2 font-mono flex items-center gap-2">
+                                <i class="fa-solid fa-sliders text-cyber-cyan"></i> Controls
+                            </h4>
+                            <p class="text-slate-400 text-xs mb-6">
+                                Customize and inspect the 3D geometry in real-time.
+                            </p>
+
+                            <!-- Controls Form -->
+                            <div class="space-y-4 font-mono text-xs">
+                                <!-- Mesh Selector -->
+                                <div>
+                                    <label class="block text-slate-300 mb-2">GEOMETRY SHAPE</label>
+                                    <select id="geo-shape" class="w-full bg-slate-900 border border-white/20 rounded-xl p-2.5 text-white focus:border-cyber-cyan focus:outline-none">
+                                        <option value="knot">Torus Knot (Default)</option>
+                                        <option value="icosahedron">Icosahedron Crystal</option>
+                                        <option value="cube">Cyber Cube Matrix</option>
+                                        <option value="octahedron">Diamond Octahedron</option>
+                                    </select>
+                                </div>
+
+                                <!-- Color Switcher -->
+                                <div>
+                                    <label class="block text-slate-300 mb-2">NEON COLOR</label>
+                                    <div class="flex gap-3">
+                                        <button data-color="#00f0ff" class="color-btn w-8 h-8 rounded-full bg-[#00f0ff] ring-2 ring-white/50 focus:outline-none"></button>
+                                        <button data-color="#7000ff" class="color-btn w-8 h-8 rounded-full bg-[#7000ff] focus:outline-none"></button>
+                                        <button data-color="#ff007f" class="color-btn w-8 h-8 rounded-full bg-[#ff007f] focus:outline-none"></button>
+                                        <button data-color="#39ff14" class="color-btn w-8 h-8 rounded-full bg-[#39ff14] focus:outline-none"></button>
+                                    </div>
+                                </div>
+
+                                <!-- Toggle Wireframe -->
+                                <div class="flex items-center justify-between pt-2">
+                                    <span class="text-slate-300">WIREFRAME MODE</span>
+                                    <button id="toggle-wireframe" class="px-3 py-1.5 rounded-lg bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/40 hover:bg-cyber-cyan hover:text-black transition-all">
+                                        TOGGLE
+                                    </button>
+                                </div>
+
+                                <!-- Rotation Speed Slider -->
+                                <div class="pt-2">
+                                    <div class="flex justify-between text-slate-300 mb-1">
+                                        <span>ROTATION SPEED</span>
+                                        <span id="speed-val" class="text-cyber-cyan">1.0x</span>
+                                    </div>
+                                    <input type="range" id="rot-speed" min="0" max="3" step="0.1" value="1" class="w-full accent-cyber-cyan">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reset Button -->
+                        <button id="reset-lab" class="w-full py-3 rounded-xl glass-panel text-slate-300 hover:text-white hover:border-cyber-cyan transition-all font-mono text-xs">
+                            <i class="fa-solid fa-rotate-right mr-2"></i> RESET SCENE
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- CONTACT SECTION -->
+        <section id="contact" class="scroll-mt-24">
+            <div class="flex items-center gap-3 mb-8">
+                <span class="text-cyber-cyan font-mono text-lg">06.</span>
+                <h3 class="text-3xl font-bold text-white tracking-wide">Get In Touch</h3>
+                <div class="h-[1px] bg-slate-800 flex-grow max-w-xs"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+                <!-- Left Details -->
+                <div class="md:col-span-5 space-y-6">
+                    <h4 class="text-2xl font-bold text-white">Let's Connect & Build</h4>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        Whether you want to discuss competitive programming, collaborate on an AI/Web project, or just discuss technology—my inbox is always open!
+                    </p>
+
+                    <div class="space-y-4 font-mono text-sm">
+                        <a href="mailto:shuklatejash84@gmail.com" class="flex items-center gap-4 p-4 rounded-xl glass-panel hover:border-cyber-cyan transition-all text-slate-200">
+                            <i class="fa-solid fa-envelope text-cyber-cyan text-xl"></i>
+                            <div>
+                                <div class="text-xs text-slate-400">EMAIL</div>
+                                <div class="font-semibold text-white">shuklatejash84@gmail.com</div>
+                            </div>
+                        </a>
+
+                        <div class="flex items-center gap-4 p-4 rounded-xl glass-panel text-slate-200">
+                            <i class="fa-solid fa-location-dot text-cyber-purple text-xl"></i>
+                            <div>
+                                <div class="text-xs text-slate-400">LOCATION</div>
+                                <div class="font-semibold text-white">India</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Social Links -->
+                    <div class="flex gap-4 pt-4">
+                        <a href="https://github.com" target="_blank" class="w-12 h-12 rounded-xl glass-panel flex items-center justify-center text-white hover:text-cyber-cyan hover:border-cyber-cyan transition-all text-xl">
+                            <i class="fa-brands fa-github"></i>
+                        </a>
+                        <a href="https://linkedin.com" target="_blank" class="w-12 h-12 rounded-xl glass-panel flex items-center justify-center text-white hover:text-cyber-cyan hover:border-cyber-cyan transition-all text-xl">
+                            <i class="fa-brands fa-linkedin-in"></i>
+                        </a>
+                        <a href="https://leetcode.com" target="_blank" class="w-12 h-12 rounded-xl glass-panel flex items-center justify-center text-white hover:text-amber-400 hover:border-amber-400 transition-all text-xl" title="LeetCode Profile">
+                            <i class="fa-solid fa-code"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Right Contact Form -->
+                <div class="md:col-span-7 glass-panel p-8 rounded-2xl border border-white/10">
+                    <form id="contact-form" onsubmit="event.preventDefault(); handleFormSubmit();" class="space-y-6">
+                        <div>
+                            <label class="block font-mono text-xs text-slate-300 mb-2">YOUR NAME</label>
+                            <input type="text" required placeholder="John Doe" class="w-full bg-slate-900/80 border border-white/10 rounded-xl p-3.5 text-white placeholder-slate-500 focus:border-cyber-cyan focus:ring-1 focus:ring-cyber-cyan focus:outline-none transition-all">
+                        </div>
+
+                        <div>
+                            <label class="block font-mono text-xs text-slate-300 mb-2">YOUR EMAIL</label>
+                            <input type="email" required placeholder="john@example.com" class="w-full bg-slate-900/80 border border-white/10 rounded-xl p-3.5 text-white placeholder-slate-500 focus:border-cyber-cyan focus:ring-1 focus:ring-cyber-cyan focus:outline-none transition-all">
+                        </div>
+
+                        <div>
+                            <label class="block font-mono text-xs text-slate-300 mb-2">MESSAGE</label>
+                            <textarea rows="4" required placeholder="Hi Tejash, let's talk about..." class="w-full bg-slate-900/80 border border-white/10 rounded-xl p-3.5 text-white placeholder-slate-500 focus:border-cyber-cyan focus:ring-1 focus:ring-cyber-cyan focus:outline-none transition-all"></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-cyber-cyan to-cyber-purple text-black font-bold font-mono hover:shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all">
+                            SEND MESSAGE <i class="fa-solid fa-paper-plane ml-2"></i>
+                        </button>
+                    </form>
+
+                    <!-- Confirmation Toast Notice -->
+                    <div id="form-toast" class="hidden mt-4 p-4 rounded-xl bg-cyber-cyan/10 border border-cyber-cyan text-cyber-cyan font-mono text-xs text-center">
+                        <i class="fa-solid fa-circle-check mr-2"></i> Thank you! Your message has been prepared/simulated.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/10 py-8 text-center font-mono text-xs text-slate-500 relative z-10">
+        <p>Designed & Built with <i class="fa-solid fa-heart text-red-500"></i> by Tejash Shukla</p>
+        <p class="mt-2 text-slate-600">Powered by Three.js & Tailwind CSS</p>
+    </footer>
+
+    <!-- THREE.JS CANVAS LOGIC & INTERACTION -->
+    <script>
+        /* ===================================================
+           1. AMBIENT BACKGROUND SCENE (PARTICLES + GRID)
+           =================================================== */
+        let bgScene, bgCamera, bgRenderer, bgParticles, bgGrid;
+        let mouseX = 0, mouseY = 0;
+        let targetX = 0, targetY = 0;
+
+        function initBgScene() {
+            const canvas = document.getElementById('webgl-bg');
+            bgScene = new THREE.Scene();
+            bgScene.fog = new THREE.FogExp2(0x050811, 0.0015);
+
+            bgCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            bgCamera.position.z = 400;
+
+            bgRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            bgRenderer.setSize(window.innerWidth, window.innerHeight);
+            bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // --- Star/Particle Field ---
+            const particlesCount = 1800;
+            const posArray = new Float32Array(particlesCount * 3);
+            const colorArray = new Float32Array(particlesCount * 3);
+
+            const color1 = new THREE.Color(0x00f0ff); // Cyan
+            const color2 = new THREE.Color(0x7000ff); // Purple
+
+            for (let i = 0; i < particlesCount * 3; i += 3) {
+                posArray[i] = (Math.random() - 0.5) * 1200;
+                posArray[i + 1] = (Math.random() - 0.5) * 1200;
+                posArray[i + 2] = (Math.random() - 0.5) * 1200;
+
+                // Color gradient mix
+                const mixedColor = color1.clone().lerp(color2, Math.random());
+                colorArray[i] = mixedColor.r;
+                colorArray[i + 1] = mixedColor.g;
+                colorArray[i + 2] = mixedColor.b;
+            }
+
+            const particlesGeo = new THREE.BufferGeometry();
+            particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            particlesGeo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+            // Create Canvas Particle Texture
+            const particleMaterial = new THREE.PointsMaterial({
+                size: 3.5,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            bgParticles = new THREE.Points(particlesGeo, particleMaterial);
+            bgScene.add(bgParticles);
+
+            // --- Floating Wireframe Geometric Objects ---
+            const floatingGroup = new THREE.Group();
+            bgScene.add(floatingGroup);
+
+            const icoGeo = new THREE.IcosahedronGeometry(40, 1);
+            const icoMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true, transparent: true, opacity: 0.12 });
+            const icoMesh = new THREE.Mesh(icoGeo, icoMat);
+            icoMesh.position.set(-180, 100, -100);
+            floatingGroup.add(icoMesh);
+
+            const torusGeo = new THREE.TorusGeometry(50, 15, 16, 100);
+            const torusMat = new THREE.MeshBasicMaterial({ color: 0x7000ff, wireframe: true, transparent: true, opacity: 0.12 });
+            const torusMesh = new THREE.Mesh(torusGeo, torusMat);
+            torusMesh.position.set(200, -120, -150);
+            floatingGroup.add(torusMesh);
+
+            // Event Listeners for Parallax
+            document.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX - window.innerWidth / 2);
+                mouseY = (e.clientY - window.innerHeight / 2);
+            });
+
+            // Smooth Scroll Parallax Reaction
+            window.addEventListener('scroll', () => {
+                const scrollY = window.scrollY;
+                bgCamera.position.y = -scrollY * 0.2;
+            });
+        }
+
+        function animateBgScene() {
+            requestAnimationFrame(animateBgScene);
+
+            // Smooth Mouse Follow Parallax
+            targetX += (mouseX - targetX) * 0.03;
+            targetY += (mouseY - targetY) * 0.03;
+
+            bgCamera.position.x = targetX * 0.15;
+            bgParticles.rotation.y += 0.0006;
+            bgParticles.rotation.x += 0.0003;
+
+            bgRenderer.render(bgScene, bgCamera);
+        }
+
+
+        /* ===================================================
+           2. INTERACTIVE 3D LAB / PLAYGROUND CANVAS
+           =================================================== */
+        let labScene, labCamera, labRenderer, labMesh, labControls;
+        let labMaterial, labGeometry;
+        let rotSpeed = 0.01;
+
+        function initLabScene() {
+            const canvas = document.getElementById('playground-canvas');
+            const container = canvas.parentElement;
+
+            labScene = new THREE.Scene();
+            labScene.background = new THREE.Color(0x050811);
+
+            labCamera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            labCamera.position.set(0, 0, 8);
+
+            labRenderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            labRenderer.setSize(container.clientWidth, container.clientHeight);
+            labRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Orbit Controls
+            labControls = new THREE.OrbitControls(labCamera, labRenderer.domElement);
+            labControls.enableDamping = true;
+            labControls.dampingFactor = 0.05;
+            labControls.enableZoom = false;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            labScene.add(ambientLight);
+
+            const pointLight1 = new THREE.PointLight(0x00f0ff, 2, 50);
+            pointLight1.position.set(10, 10, 10);
+            labScene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0x7000ff, 2, 50);
+            pointLight2.position.set(-10, -10, -10);
+            labScene.add(pointLight2);
+
+            // Default Mesh
+            labGeometry = new THREE.TorusKnotGeometry(1.5, 0.4, 120, 16);
+            labMaterial = new THREE.MeshStandardMaterial({
+                color: 0x00f0ff,
+                roughness: 0.2,
+                metalness: 0.8,
+                wireframe: false
+            });
+
+            labMesh = new THREE.Mesh(labGeometry, labMaterial);
+            labScene.add(labMesh);
+        }
+
+        function animateLabScene() {
+            requestAnimationFrame(animateLabScene);
+
+            if (labMesh) {
+                labMesh.rotation.x += rotSpeed;
+                labMesh.rotation.y += rotSpeed * 1.2;
+            }
+
+            labControls.update();
+            labRenderer.render(labScene, labCamera);
+        }
+
+        // Playground UI Handlers
+        function setupPlaygroundControls() {
+            // Shape selector
+            document.getElementById('geo-shape').addEventListener('change', (e) => {
+                const shape = e.target.value;
+                labScene.remove(labMesh);
+                labGeometry.dispose();
+
+                if (shape === 'knot') {
+                    labGeometry = new THREE.TorusKnotGeometry(1.5, 0.4, 120, 16);
+                } else if (shape === 'icosahedron') {
+                    labGeometry = new THREE.IcosahedronGeometry(2, 0);
+                } else if (shape === 'cube') {
+                    labGeometry = new THREE.BoxGeometry(2.2, 2.2, 2.2);
+                } else if (shape === 'octahedron') {
+                    labGeometry = new THREE.OctahedronGeometry(2.2, 0);
+                }
+
+                labMesh = new THREE.Mesh(labGeometry, labMaterial);
+                labScene.add(labMesh);
+            });
+
+            // Color Buttons
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const colorHex = e.target.getAttribute('data-color');
+                    labMaterial.color.set(colorHex);
+                });
+            });
+
+            // Wireframe Toggle
+            document.getElementById('toggle-wireframe').addEventListener('click', () => {
+                labMaterial.wireframe = !labMaterial.wireframe;
+            });
+
+            // Speed Slider
+            const speedSlider = document.getElementById('rot-speed');
+            const speedVal = document.getElementById('speed-val');
+            speedSlider.addEventListener('input', (e) => {
+                const multiplier = parseFloat(e.target.value);
+                rotSpeed = 0.01 * multiplier;
+                speedVal.textContent = multiplier.toFixed(1) + 'x';
+            });
+
+            // Reset
+            document.getElementById('reset-lab').addEventListener('click', () => {
+                labMaterial.color.set('#00f0ff');
+                labMaterial.wireframe = false;
+                rotSpeed = 0.01;
+                speedSlider.value = 1;
+                speedVal.textContent = '1.0x';
+                document.getElementById('geo-shape').value = 'knot';
+                
+                labScene.remove(labMesh);
+                labGeometry = new THREE.TorusKnotGeometry(1.5, 0.4, 120, 16);
+                labMesh = new THREE.Mesh(labGeometry, labMaterial);
+                labScene.add(labMesh);
+            });
+        }
+
+
+        /* ===================================================
+           3. UI INTERACTION & RESPONSIVENESS
+           =================================================== */
+        window.onload = function () {
+            initBgScene();
+            animateBgScene();
+
+            initLabScene();
+            animateLabScene();
+
+            setupPlaygroundControls();
+
+            // Mobile Navigation Toggle
+            const mobileBtn = document.getElementById('mobile-menu-btn');
+            const mobileMenu = document.getElementById('mobile-menu');
+
+            mobileBtn.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+                mobileMenu.classList.toggle('flex');
+            });
+
+            document.querySelectorAll('.mobile-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    mobileMenu.classList.add('hidden');
+                    mobileMenu.classList.remove('flex');
+                });
+            });
+        };
+
+        // Resize Listener for Both Canvases
+        window.addEventListener('resize', () => {
+            // Bg Resize
+            bgCamera.aspect = window.innerWidth / window.innerHeight;
+            bgCamera.updateProjectionMatrix();
+            bgRenderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Lab Resize
+            const container = document.getElementById('playground-canvas').parentElement;
+            labCamera.aspect = container.clientWidth / container.clientHeight;
+            labCamera.updateProjectionMatrix();
+            labRenderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        // Contact Form Submission Handler
+        function handleFormSubmit() {
+            const toast = document.getElementById('form-toast');
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 4000);
+            document.getElementById('contact-form').reset();
+        }
+    </script>
+</body>
+</html>
